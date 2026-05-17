@@ -70,8 +70,7 @@ def create_user(username: str, salt: bytes, master_hash: bytes) -> bool:
             cursor.execute(query, (username, salt, master_hash))
             conn.commit()
             
-            user_id = cursor.lastrowid
-            add_audit_log(user_id, "User registered")
+            # Kita tidak catat log registrasi karena di skema ENUM audit_log Anda tidak ada opsi 'REGISTER_OK'
             return True
         except Error as e:
             print(f"Error create_user: {e}")
@@ -87,10 +86,10 @@ def update_login_attempts(user_id: int, attempts: int, locked_until=None):
         try:
             cursor = conn.cursor()
             if locked_until:
-                query = "UPDATE user SET failed_login_attempts = %s, locked_until = %s WHERE id = %s"
+                query = "UPDATE user SET failed_attempts = %s, locked_until = %s WHERE id = %s"
                 cursor.execute(query, (attempts, locked_until, user_id))
             else:
-                query = "UPDATE user SET failed_login_attempts = %s WHERE id = %s"
+                query = "UPDATE user SET failed_attempts = %s WHERE id = %s"
                 cursor.execute(query, (attempts, user_id))
             conn.commit()
         except Error as e:
@@ -99,13 +98,13 @@ def update_login_attempts(user_id: int, attempts: int, locked_until=None):
             cursor.close()
             conn.close()
 
-def add_password_entry(user_id: int, website: str, username: str, password_enc: bytes, iv: bytes, auth_tag: bytes) -> bool:
+def add_password_entry(user_id: int, site_name: str, username_hint: str, password_enc: bytes, iv: bytes, auth_tag: bytes) -> bool:
     conn = get_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            query = "INSERT INTO password_entries (user_id, website, username, password_enc, iv, auth_tag) VALUES (%s, %s, %s, %s, %s, %s)"
-            cursor.execute(query, (user_id, website, username, password_enc, iv, auth_tag))
+            query = "INSERT INTO password_entries (user_id, site_name, username_hint, password_enc, iv, auth_tag) VALUES (%s, %s, %s, %s, %s, %s)"
+            cursor.execute(query, (user_id, site_name, username_hint, password_enc, iv, auth_tag))
             conn.commit()
             return True
         except Error as e:
@@ -152,7 +151,6 @@ def save_recovery_token(user_id: int, recovery_hash: bytes, expires_at: datetime
             query = "UPDATE user SET recovery_token_hash = %s, recovery_expires_at = %s WHERE id = %s"
             cursor.execute(query, (recovery_hash, expires_at, user_id))
             conn.commit()
-            add_audit_log(user_id, "Generated recovery token")
         except Error as e:
             print(f"Error save_recovery_token: {e}")
         finally:
@@ -167,7 +165,7 @@ def update_master_key(user_id: int, new_salt: bytes, new_hash: bytes):
             query = "UPDATE user SET salt = %s, master_hash = %s, recovery_token_hash = NULL, recovery_expires_at = NULL WHERE id = %s"
             cursor.execute(query, (new_salt, new_hash, user_id))
             conn.commit()
-            add_audit_log(user_id, "Reset Master Key")
+            add_audit_log(user_id, "PASSWORD_RESET")
             return True
         except Error as e:
             print(f"Error update_master_key: {e}")

@@ -128,24 +128,25 @@ class SecureVaultApp:
             hash_tersimpan = user_data['master_hash']
             
             if verifikasi_master_key(input_key, hash_tersimpan, salt):
-                
+                # Login sukses
                 database.update_login_attempts(user_data['id'], 0, None)
-                database.add_audit_log(user_data['id'], "Login sukses")
+                database.add_audit_log(user_data['id'], "LOGIN_OK")
                 
                 self.current_user = user_data
                 self.kunci_aes_aktif = hash_master_key(input_key, salt)
                 self.show_vault()
             else:
-                
-                attempts = user_data['failed_login_attempts'] + 1
+                # Login gagal
+                attempts = user_data['failed_attempts'] + 1
                 if attempts >= 3:
                     import datetime as dt
                     locked_until = dt.datetime.now() + dt.timedelta(minutes=5)
                     database.update_login_attempts(user_data['id'], attempts, locked_until)
-                    database.add_audit_log(user_data['id'], "Akun terkunci (Brute-force)")
+                    database.add_audit_log(user_data['id'], "ACCOUNT_LOCKED")
                     messagebox.showerror("Error", "Terlalu banyak percobaan gagal. Akun dikunci 5 menit.")
                 else:
                     database.update_login_attempts(user_data['id'], attempts)
+                    database.add_audit_log(user_data['id'], "LOGIN_FAIL")
                     messagebox.showerror("Error", f"Master Key salah! Percobaan {attempts}/3")
 
         ttk.Button(frame, text="LOGIN", style='Primary.TButton', command=do_login, width=25).pack(pady=5)
@@ -210,7 +211,7 @@ class SecureVaultApp:
             if valid:
                 salt_baru, hash_baru = ganti_master_key(master_baru)
                 database.update_master_key(user_data['id'], salt_baru, hash_baru)
-                database.add_audit_log(user_data['id'], "Master Key di-reset via Token")
+                # Catatan: audit log reset sudah ditangani di database.update_master_key
                 
                 messagebox.showinfo("Sukses", "Master Key berhasil direset. Catatan: password lama mungkin tidak bisa diakses tanpa kunci asli.", parent=window_reset)
                 window_reset.destroy()
@@ -274,7 +275,7 @@ class SecureVaultApp:
             
         passwords = database.get_passwords(self.current_user['id'])
         for p in passwords:
-            self.tree.insert("", "end", values=(p['id'], p['website'], p['username'], "••••••••"))
+            self.tree.insert("", "end", values=(p['id'], p['site_name'], p['username_hint'], "••••••••"))
             
     def show_add_password(self):
         win_add = tk.Toplevel(self.root)
@@ -311,7 +312,7 @@ class SecureVaultApp:
             c, iv, auth = enkripsi_password(p, self.kunci_aes_aktif)
             
             if database.add_password_entry(self.current_user['id'], w, u, c, iv, auth):
-                database.add_audit_log(self.current_user['id'], f"Tambah password untuk {w}")
+                database.add_audit_log(self.current_user['id'], "ENTRY_CREATE")
                 messagebox.showinfo("Sukses", "Password berhasil disimpan", parent=win_add)
                 self.load_vault_data()
                 win_add.destroy()
@@ -341,8 +342,8 @@ class SecureVaultApp:
         
         try:
             asli = dekripsi_password(p['password_enc'], p['iv'], p['auth_tag'], self.kunci_aes_aktif)
-            messagebox.showinfo("Lihat Password", f"Website: {p['website']}\nUsername: {p['username']}\n\nPassword: {asli}")
-            database.add_audit_log(self.current_user['id'], f"Melihat password {p['website']}")
+            messagebox.showinfo("Lihat Password", f"Website: {p['site_name']}\nUsername: {p['username_hint']}\n\nPassword: {asli}")
+            database.add_audit_log(self.current_user['id'], "ENTRY_READ")
         except Exception:
             messagebox.showerror("Error", "Gagal mendekripsi. Apakah Master Key sudah berubah tanpa re-enkripsi?")
 
@@ -355,7 +356,7 @@ class SecureVaultApp:
             self.root.clipboard_clear()
             self.root.clipboard_append(asli)
             messagebox.showinfo("Sukses", "Password berhasil disalin ke clipboard")
-            database.add_audit_log(self.current_user['id'], f"Menyalin password {p['website']}")
+            database.add_audit_log(self.current_user['id'], "ENTRY_READ")
         except Exception:
             messagebox.showerror("Error", "Gagal mendekripsi password")
 
@@ -371,7 +372,7 @@ class SecureVaultApp:
         
         if messagebox.askyesno("Konfirmasi", f"Yakin ingin menghapus password untuk {website}?"):
             if database.delete_password(entry_id):
-                database.add_audit_log(self.current_user['id'], f"Menghapus password {website}")
+                database.add_audit_log(self.current_user['id'], "ENTRY_DELETE")
                 self.load_vault_data()
                 messagebox.showinfo("Sukses", "Data dihapus")
 
@@ -404,6 +405,7 @@ class SecureVaultApp:
                     asli = dekripsi_password(p['password_enc'], p['iv'], p['auth_tag'], self.kunci_aes_aktif)
                     c_new, iv_new, auth_new = enkripsi_password(asli, kunci_aes_baru)
                     database.update_password_encryption(p['id'], c_new, iv_new, auth_new)
+                    database.add_audit_log(self.current_user['id'], "ENTRY_UPDATE")
             except Exception as e:
                 messagebox.showerror("Error", f"Gagal re-enkripsi: {e}", parent=win_change)
                 return
