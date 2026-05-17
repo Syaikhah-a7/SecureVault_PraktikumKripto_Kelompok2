@@ -234,6 +234,19 @@ class SecureVaultApp:
         ttk.Button(header, text="Logout", command=self.show_login).pack(side=tk.RIGHT)
         ttk.Button(header, text="Ganti Master Key", command=self.show_change_master_key).pack(side=tk.RIGHT, padx=10)
         
+        # Frame untuk tombol-tombol (diposisikan di bawah agar tidak tertutup tabel)
+        frame_btn = ttk.Frame(frame_main)
+        frame_btn.pack(side=tk.BOTTOM, fill="x", pady=(10, 0))
+        
+        ttk.Button(frame_btn, text="+ Tambah Password", style='Primary.TButton', command=self.show_add_password).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(frame_btn, text="Lihat Password", command=self.lihat_password).pack(side=tk.LEFT, padx=5)
+        ttk.Button(frame_btn, text="Copy Password", command=self.copy_password).pack(side=tk.LEFT, padx=5)
+        ttk.Button(frame_btn, text="Hapus", style='Danger.TButton', command=self.hapus_password).pack(side=tk.LEFT, padx=5)
+
+        # Frame pembungkus khusus untuk tabel
+        frame_tabel = ttk.Frame(frame_main)
+        frame_tabel.pack(side=tk.TOP, fill="both", expand=True)
+
         # Tabel Vault
         columns = ("ID", "Website", "Username", "Password")
         
@@ -242,7 +255,7 @@ class SecureVaultApp:
         style.configure("Treeview", font=('Inter', 11), rowheight=30)
         style.configure("Treeview.Heading", font=('Inter', 11, 'bold'))
         
-        self.tree = ttk.Treeview(frame_main, columns=columns, show="headings", height=12)
+        self.tree = ttk.Treeview(frame_tabel, columns=columns, show="headings", height=10)
         self.tree.heading("ID", text="ID")
         self.tree.column("ID", width=0, stretch=tk.NO) # Hide ID
         self.tree.heading("Website", text="Website / Aplikasi")
@@ -253,21 +266,13 @@ class SecureVaultApp:
         self.tree.column("Password", width=150)
         
         # Scrollbar untuk tabel
-        scrollbar = ttk.Scrollbar(frame_main, orient=tk.VERTICAL, command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(frame_tabel, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)
         
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tree.pack(fill="both", expand=True)
+        self.tree.pack(side=tk.LEFT, fill="both", expand=True)
         
         self.load_vault_data()
-        
-        frame_btn = ttk.Frame(frame_main)
-        frame_btn.pack(fill="x", pady=20)
-        
-        ttk.Button(frame_btn, text="+ Tambah Password", style='Primary.TButton', command=self.show_add_password).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(frame_btn, text="Lihat Password", command=self.lihat_password).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_btn, text="Copy Password", command=self.copy_password).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_btn, text="Hapus", style='Danger.TButton', command=self.hapus_password).pack(side=tk.LEFT, padx=5)
         
     def load_vault_data(self):
         for item in self.tree.get_children():
