@@ -183,7 +183,19 @@ class SecureVaultApp:
             token_var.set(token_teks)
             messagebox.showinfo("INFO PENTING", f"Simpan token ini baik-baik. Hanya tampil sekali!\n\n{token_teks}", parent=window_reset)
         
-        ttk.Button(frame, text="Minta Token Recovery", command=request_token).pack(pady=(0, 20))
+        def copy_token():
+            token = token_var.get()
+            if token:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(token)
+                messagebox.showinfo("Sukses", "Token berhasil disalin ke clipboard!", parent=window_reset)
+            else:
+                messagebox.showwarning("Warning", "Belum ada token yang di-generate!", parent=window_reset)
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=(0, 20))
+        ttk.Button(btn_frame, text="Minta Token Recovery", command=request_token).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_frame, text="Salin Token", command=copy_token).pack(side=tk.LEFT)
         
         ttk.Label(frame, text="Masukkan Token Recovery").pack(anchor="w")
         entry_token = ttk.Entry(frame, width=40, font=('Inter', 11))
